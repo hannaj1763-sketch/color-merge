@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>예성이가 커지면 - 색깔 물감 대작전</title>
+<style>
+  * { box-sizing: border-box; user-select: none; -webkit-user-select: none; margin: 0; padding: 0; }
+  body {
+    font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif;
+    background: linear-gradient(180deg, #b8f1ff 0%, #68d2f4 55%, #2ba8d8 100%);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    touch-action: manipulation;
+  }
+  .game-wrapper {
+    width: 100%;
+    max-width: 430px;
+    height: 100vh;
+    max-height: 850px;
+    display: flex;
+    flex-direction: column;
+    padding: 10px 12px 12px;
+    position: relative;
+  }
+  .top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+    z-index: 10;
+  }
+  .btn-pill {
+    background: #ffffff;
+    border: 3px solid #3c548a;
+    border-radius: 20px;
+    padding: 6px 11px;
+    font-size: 13px;
+    font-weight: 800;
+    color: #293b66;
+    cursor: pointer;
+    box-shadow: 0 3px 0 #3c548a;
+    transition: transform 0.08s;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .btn-pill:active { transform: translateY(2px); box-shadow: 0 1px 0 #3c548a; }
+  .btn-face { background: #fff5cc; border-color: #c27803; color: #7a4900; box-shadow: 0 3px 0 #c27803; }
+  .btn-book { background: #f3e8ff; border-color: #6b21a8; color: #581c87; box-shadow: 0 3px 0 #6b21a8; }
+
+  .hud-area {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    position: relative;
+  }
+  .octopus-box {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .octopus-avatar {
+    width: 48px;
+    height: 48px;
+    background: #d896ff;
+    border: 3px solid #5e2a84;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    box-shadow: 0 3px 0 #5e2a84;
+    flex-shrink: 0;
+  }
+  .speech-bubble {
+    background: #ffffff;
+    border: 2.5px solid #3c548a;
+    border-radius: 14px;
+    padding: 5px 9px;
+    font-size: 11.5px;
+    font-weight: 800;
+    color: #25365c;
+    max-width: 120px;
+    line-height: 1.25;
+    box-shadow: 0 2px 0 #3c548a;
+  }
+  .score-board {
+    background: linear-gradient(180deg, #d79c63 0%, #b5733c 100%);
+    border: 3px solid #6b3e19;
+    border-radius: 14px;
+    padding: 5px 14px;
+    text-align: center;
+    box-shadow: 0 3px 0 #6b3e19;
+    min-width: 125px;
+  }
+  .score-label {
+    font-size: 11px;
+    font-weight: 900;
+    color: #fff2d6;
+    text-shadow: 1px 1px 0 #5a3110;
+  }
+  .score-val {
+    font-size: 22px;
+    font-weight: 900;
+    color: #ffffff;
+    text-shadow: 1.5px 1.5px 0 #5a3110;
+    line-height: 1.1;
+  }
+  .next-box {
+    background: rgba(255,255,255,0.85);
+    border: 3px solid #3c548a;
+    border-radius: 16px;
+    padding: 4px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-shadow: 0 3px 0 #3c548a;
+  }
+  .next-label { font-size: 10px; font-weight: 900; color: #3c548a; margin-bottom: 2px; }
+
+  .gate-bar-wrap {
+    background: #8f582b;
+    border: 3px solid #593213;
+    border-radius: 12px;
+    padding: 3px;
+    margin-bottom: 6px;
+    position: relative;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .gate-fill {
+    position: absolute;
+    left: 2px; top: 2px; bottom: 2px;
+    width: 10%;
+    background: linear-gradient(90deg, #ff9f1c, #ffbf69);
+    border-radius: 8px;
+    transition: width 0.25s ease;
+  }
+  .gate-text {
+    position: relative;
+    z-index: 2;
+    font-size: 12px;
+    font-weight: 900;
+    color: #ffffff;
+    text-shadow: 1px 1px 0 #4a270c;
+  }
+
+  .canvas-frame {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.28);
+    border: 6px solid #9d6334;
+    border-top: 4px dashed #ff595e;
+    border-radius: 8px 8px 20px 20px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 0 20px rgba(255,255,255,0.4), 0 6px 0 #6b3e19;
+    cursor: pointer;
+  }
+  canvas#gameCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .controls-bar {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    height: 50px;
+  }
+  .ctrl-btn {
+    background: #ffffff;
+    border: 3px solid #3c548a;
+    border-radius: 16px;
+    font-size: 18px;
+    font-weight: 900;
+    color: #293b66;
+    cursor: pointer;
+    box-shadow: 0 4px 0 #3c548a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .ctrl-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #3c548a; }
+  .ctrl-move { width: 64px; }
+  .ctrl-drop {
+    flex: 1;
+    background: linear-gradient(180deg, #ff758f 0%, #ff4d6d 100%);
+    border-color: #800f2f;
+    color: #ffffff;
+    font-size: 16px;
+    box-shadow: 0 4px 0 #800f2f;
+    text-shadow: 1px 1px 0 #800f2f;
+  }
+  .ctrl-drop:active { box-shadow: 0 2px 0 #800f2f; }
+
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 28, 56, 0.72);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 16px;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal-card {
+    background: #ffffff;
+    border: 4px solid #3c548a;
+    border-radius: 24px;
+    width: 100%;
+    max-width: 390px;
+    max-height: 88vh;
+    overflow-y: auto;
+    padding: 18px;
+    box-shadow: 0 8px 0 #233357;
+  }
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .modal-title { font-size: 18px; font-weight: 900; color: #233357; }
+  .close-btn {
+    background: #ff595e;
+    color: #fff;
+    border: 2px solid #800f2f;
+    border-radius: 12px;
+    padding: 4px 10px;
+    font-weight: 900;
+    cursor: pointer;
+  }
+
+  .draw-area-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+  canvas#faceCanvas {
+    background: #fffdf5;
+    border: 4px solid #c27803;
+    border-radius: 50%;
+    cursor: crosshair;
+    touch-action: none;
+  }
+  .tool-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .mini-btn {
+    background: #f1f5f9;
+    border: 2px solid #475569;
+    border-radius: 10px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .mini-btn.active { background: #fde047; border-color: #a16207; }
+  .save-face-btn {
+    width: 100%;
+    background: #22c55e;
+    border: 3px solid #15803d;
+    color: #fff;
+    border-radius: 14px;
+    padding: 10px;
+    font-size: 15px;
+    font-weight: 900;
+    cursor: pointer;
+    box-shadow: 0 3px 0 #15803d;
+  }
+
+  .recipe-section { margin-bottom: 14px; }
+  .recipe-section h4 {
+    font-size: 13px;
+    font-weight: 900;
+    color: #3c548a;
+    margin-bottom: 6px;
+    background: #e0f2fe;
+    padding: 4px 8px;
+    border-radius: 8px;
+  }
+  .recipe-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .recipe-item {
+    background: #f8fafc;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 6px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.25);
+    vertical-align: middle;
+  }
+</style>
+</head>
+<body>
+
+<div class="game-wrapper">
+  <div class="top-bar">
+    <button class="btn-pill btn-face" id="openFaceBtn">😊 표정바꾸기</button>
+    <button class="btn-pill btn-book" id="openBookBtn">📖 색깔조합표</button>
+    <button class="btn-pill" id="resetBtn">🔄 다시하기</button>
+  </div>
+
+  <div class="hud-area">
+    <div class="octopus-box">
+      <div class="octopus-avatar">🐙</div>
+      <div class="speech-bubble" id="octopusMsg">빨강+파랑을 섞어 보라를 만들어봐!</div>
+    </div>
+    <div class="score-board">
+      <div class="score-label">스코어 <span id="multBadge">x1.0</span></div>
+      <div class="score-val" id="scoreVal">0</div>
+    </div>
+    <div class="next-box">
+      <div class="next-label">다음 물감</div>
+      <canvas id="nextCanvas" width="44" height="44"></canvas>
+    </div>
+  </div>
+
+  <div class="gate-bar-wrap">
+    <div class="gate-fill" id="gateFill"></div>
+    <div class="gate-text" id="gateText">게이트 1 (0 / 25)</div>
+  </div>
+
+  <div class="canvas-frame" id="canvasFrame">
+    <canvas id="gameCanvas"></canvas>
+  </div>
+
+  <div class="controls-bar">
+    <button class="ctrl-btn ctrl-move" id="leftBtn">◀</button>
+    <button class="ctrl-btn ctrl-drop" id="dropBtn">👇 퐁! 떨어뜨리기</button>
+    <button class="ctrl-btn ctrl-move" id="rightBtn">▶</button>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="faceModal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <div class="modal-title">😊 표정바꾸기 (예성이 얼굴)</div>
+      <button class="close-btn" id="closeFaceBtn">닫기</button>
+    </div>
+    <div class="draw-area-wrap">
+      <p style="font-size:12px; color:#475569; text-align:center;">동그라미 안에 예성이의 귀여운 눈·코·입을 그리거나 사진을 올려보세요!</p>
+      <canvas id="faceCanvas" width="210" height="210"></canvas>
+      <div class="tool-row">
+        <button class="mini-btn active" data-size="4">가는펜</button>
+        <button class="mini-btn" data-size="8">중간펜</button>
+        <button class="mini-btn" data-size="14">굵은펜</button>
+        <button class="mini-btn" id="undoFaceBtn">↩ 되돌리기</button>
+        <button class="mini-btn" id="clearFaceBtn">🧹 지우기</button>
+      </div>
+      <label class="mini-btn" style="background:#e0f2fe; border-color:#0284c7; color:#0369a1; width:100%; text-align:center;">
+        📷 갤러리 사진으로 표정 넣기
+        <input type="file" id="uploadFaceInput" accept="image/*" style="display:none;" />
+      </label>
+      <button class="save-face-btn" id="applyFaceBtn">✨ 모든 예성이에게 적용하기!</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="bookModal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <div class="modal-title">📖 색깔 혼합 & 8단계 진화표</div>
+      <button class="close-btn" id="closeBookBtn">닫기</button>
+    </div>
+    <div class="recipe-section">
+      <h4>1단계 + 1단계 ➔ 2차색 혼합</h4>
+      <div class="recipe-grid">
+        <div class="recipe-item"><span><i class="dot" style="background:#ff4d4f"></i>+<i class="dot" style="background:#3b82f6"></i></span><b>🟣 보라</b></div>
+        <div class="recipe-item"><span><i class="dot" style="background:#ff4d4f"></i>+<i class="dot" style="background:#facc15"></i></span><b>🟠 주황</b></div>
+        <div class="recipe-item"><span><i class="dot" style="background:#facc15"></i>+<i class="dot" style="background:#3b82f6"></i></span><b>🟢 초록</b></div>
+        <div class="recipe-item"><span>같은 원색 2개</span><b>⬆️ 크기 성장</b></div>
+      </div>
+    </div>
+    <div class="recipe-section">
+      <h4>2차색 + 인접 1차색 ➔ 3차색 (보색은 방해블록!)</h4>
+      <div class="recipe-grid">
+        <div class="recipe-item"><span>🟣보라 + 🔴빨강</span><b>🌺 자주</b></div>
+        <div class="recipe-item"><span>🟣보라 + 🔵파랑</span><b>🫐 남보라</b></div>
+        <div class="recipe-item"><span>🟠주황 + 🔴빨강</span><b>🍎 다홍</b></div>
+        <div class="recipe-item"><span>🟠주황 + 🟡노랑</span><b>🍊 귤색</b></div>
+        <div class="recipe-item"><span>🟢초록 + 🟡노랑</span><b>🍈 연두</b></div>
+        <div class="recipe-item"><span>🟢초록 + 🔵파랑</span><b>🦚 청록</b></div>
+      </div>
+    </div>
+    <div class="recipe-section">
+      <h4>4~8단계: 똑같은 색끼리만 합체 ➔ 3마리 대폭발!</h4>
+      <div style="font-size:12px; line-height:1.6; color:#334155; background:#fffbeb; padding:8px 10px; border-radius:10px; border:1.5px solid #fcd34d;">
+        <b>3차색(동일)</b> ➔ <b>🌰 4단계 고동</b> ➔ <b>🤎 5단계 적갈색</b> ➔ <b>⭐ 6단계 황금별</b> ➔ <b>👑 7단계 왕관대장</b> ➔ <b>🌈 8단계 무지개대왕</b><br/>
+        💥 <b>무지개대왕 예성이 3마리</b>가 서로 맞닿으면 화면을 흔들며 <b>왕왕 트리오 대폭발 (+10,000점)</b>!
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const TYPES = {
+    RED:       { id: 'RED',       tier: 1, name: '빨강',     color: '#ff4d4f', r: 22, score: 10 },
+    YELLOW:    { id: 'YELLOW',    tier: 1, name: '노랑',     color: '#facc15', r: 22, score: 10 },
+    BLUE:      { id: 'BLUE',      tier: 1, name: '파랑',     color: '#3b82f6', r: 22, score: 10 },
+
+    PURPLE:    { id: 'PURPLE',    tier: 2, name: '보라',     color: '#9333ea', r: 28, score: 30 },
+    ORANGE:    { id: 'ORANGE',    tier: 2, name: '주황',     color: '#f97316', r: 28, score: 30 },
+    GREEN:     { id: 'GREEN',     tier: 2, name: '초록',     color: '#22c55e', r: 28, score: 30 },
+
+    MAGENTA:   { id: 'MAGENTA',   tier: 3, name: '자주',     color: '#db2777', r: 34, score: 70 },
+    INDIGO:    { id: 'INDIGO',    tier: 3, name: '남보라',   color: '#4f46e5', r: 34, score: 70 },
+    VERMILION: { id: 'VERMILION', tier: 3, name: '다홍',     color: '#ea580c', r: 34, score: 70 },
+    TANGERINE: { id: 'TANGERINE', tier: 3, name: '귤색',     color: '#eab308', r: 34, score: 70 },
+    LIME:      { id: 'LIME',      tier: 3, name: '연두',     color: '#84cc16', r: 34, score: 70 },
+    TEAL:      { id: 'TEAL',      tier: 3, name: '청록',     color: '#0d9488', r: 34, score: 70 },
+
+    BROWN:     { id: 'BROWN',     tier: 4, name: '고동',     color: '#78350f', r: 40, score: 150 },
+    CHESTNUT:  { id: 'CHESTNUT',  tier: 5, name: '적갈색',   color: '#9a3412', r: 46, score: 320 },
+    GOLDSTAR:  { id: 'GOLDSTAR',  tier: 6, name: '황금별',   color: '#f59e0b', r: 52, score: 650, star: true },
+    CROWN:     { id: 'CROWN',     tier: 7, name: '왕관대장', color: '#ec4899', r: 58, score: 1300, crown: true },
+    RAINBOW:   { id: 'RAINBOW',   tier: 8, name: '무지개대왕', color: 'rainbow', r: 64, score: 3000, crown: true }
+  };
+
+  const MIX_TABLE = {
+    'RED+BLUE': 'PURPLE', 'BLUE+RED': 'PURPLE',
+    'RED+YELLOW': 'ORANGE', 'YELLOW+RED': 'ORANGE',
+    'YELLOW+BLUE': 'GREEN', 'BLUE+YELLOW': 'GREEN',
+
+    'PURPLE+RED': 'MAGENTA', 'RED+PURPLE': 'MAGENTA',
+    'PURPLE+BLUE': 'INDIGO', 'BLUE+PURPLE': 'INDIGO',
+    'ORANGE+RED': 'VERMILION', 'RED+ORANGE': 'VERMILION',
+    'ORANGE+YELLOW': 'TANGERINE', 'YELLOW+ORANGE': 'TANGERINE',
+    'GREEN+YELLOW': 'LIME', 'YELLOW+GREEN': 'LIME',
+    'GREEN+BLUE': 'TEAL', 'BLUE+GREEN': 'TEAL'
+  };
+
+  const SAME_EVOLVE = {
+    'RED': 'VERMILION',
+    'YELLOW': 'TANGERINE',
+    'BLUE': 'INDIGO',
+    'PURPLE': 'INDIGO',
+    'ORANGE': 'VERMILION',
+    'GREEN': 'LIME',
+    'MAGENTA': 'BROWN',
+    'INDIGO': 'BROWN',
+    'VERMILION': 'BROWN',
+    'TANGERINE': 'BROWN',
+    'LIME': 'BROWN',
+    'TEAL': 'BROWN',
+    'BROWN': 'CHESTNUT',
+    'CHESTNUT': 'GOLDSTAR',
+    'GOLDSTAR': 'CROWN',
+    'CROWN': 'RAINBOW'
+  };
+
+  function getReactionResult(idA, idB) {
+    if (idA === 'RAINBOW' && idB === 'RAINBOW') return null;
+    const pairKey = idA + '+' + idB;
+    if (MIX_TABLE[pairKey]) return MIX_TABLE[pairKey];
+    if (idA === idB && SAME_EVOLVE[idA]) return SAME_EVOLVE[idA];
+    return null;
+  }
+
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  let audioCtx = null;
+  function playTone(freq, type = 'sine', dur = 0.12, vol = 0.15) {
+    try {
+      if (!audioCtx) audioCtx = new AudioCtx();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(freq * 1.35, audioCtx.currentTime + dur);
+      gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + dur);
+    } catch (e) {}
+  }
+
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const nextCanvas = document.getElementById('nextCanvas');
+  const nextCtx = nextCanvas.getContext('2d');
+  const frameEl = document.getElementById('canvasFrame');
+
+  let W = 360, H = 520;
+  const DANGER_Y = 66;
+  let balls = [];
+  let particles = [];
+  let floatTexts = [];
+  let score = 0;
+  let gateLevel = 1;
+  let gateCount = 0;
+  let gateTarget = 25;
+  let multiplier = 1.0;
+
+  const BASE_POOL = ['RED', 'YELLOW', 'BLUE'];
+  let currentType = 'RED';
+  let nextType = 'BLUE';
+  let aimX = 180;
+  let canDrop = true;
+  let gameOver = false;
+  let shakeTime = 0;
+  let customFaceImg = null;
+
+  function resizeCanvas() {
+    const rect = frameEl.getBoundingClientRect();
+    W = Math.floor(rect.width);
+    H = Math.floor(rect.height);
+    canvas.width = W;
+    canvas.height = H;
+    aimX = Math.max(30, Math.min(W - 30, aimX));
+  }
+  window.addEventListener('resize', resizeCanvas);
+
+  function randomBase() {
+    return BASE_POOL[Math.floor(Math.random() * BASE_POOL.length)];
+  }
+
+  function updateHUD() {
+    document.getElementById('scoreVal').textContent = score.toLocaleString();
+    document.getElementById('multBadge').textContent = 'x' + multiplier.toFixed(1);
+    const pct = Math.min(100, (gateCount / gateTarget) * 100);
+    document.getElementById('gateFill').style.width = pct + '%';
+    document.getElementById('gateText').textContent = `게이트 ${gateLevel} (${gateCount} / ${gateTarget})`;
+
+    nextCtx.clearRect(0, 0, 44, 44);
+    drawYeseongCharacter(nextCtx, 22, 22, 17, TYPES[nextType], 0);
+  }
+
+  function addScore(basePts) {
+    score += Math.round(basePts * multiplier);
+    gateCount++;
+    if (gateCount >= gateTarget) {
+      gateLevel++;
+      gateCount = 0;
+      gateTarget = Math.round(gateTarget * 1.35);
+      multiplier = +(multiplier + 0.5).toFixed(1);
+      setOctopusMsg(`게이트 ${gateLevel} 돌파! 배수 x${multiplier.toFixed(1)} 증가! 🎉`);
+      playTone(660, 'triangle', 0.25, 0.2);
+    }
+    updateHUD();
+  }
+
+  function setOctopusMsg(msg) {
+    document.getElementById('octopusMsg').textContent = msg;
+  }
+
+  function spawnParticles(x, y, color, count = 14) {
+    for (let i = 0; i < count; i++) {
+      const ang = (Math.PI * 2 * i) / count + Math.random() * 0.4;
+      const spd = 2 + Math.random() * 4.5;
+      particles.push({
+        x, y,
+        vx: Math.cos(ang) * spd,
+        vy: Math.sin(ang) * spd - 1,
+        r: 3 + Math.random() * 4,
+        color: color === 'rainbow' ? `hsl(${Math.random()*360},90%,60%)` : color,
+        life: 1.0
+      });
+    }
+  }
+
+  function spawnFloatText(x, y, text, color = '#ffffff') {
+    floatTexts.push({ x, y, text, color, life: 1.0 });
+  }
+
+  function drawYeseongCharacter(c, x, y, r, info, wobble = 0) {
+    c.save();
+    c.translate(x, y);
+    if (wobble) c.rotate(Math.sin(wobble) * 0.06);
+
+    c.beginPath();
+    c.arc(0, 0, r, 0, Math.PI * 2);
+    if (info.color === 'rainbow') {
+      const grad = c.createLinearGradient(-r, -r, r, r);
+      grad.addColorStop(0, '#ff4d4f');
+      grad.addColorStop(0.25, '#facc15');
+      grad.addColorStop(0.5, '#22c55e');
+      grad.addColorStop(0.75, '#3b82f6');
+      grad.addColorStop(1, '#a855f7');
+      c.fillStyle = grad;
+    } else {
+      c.fillStyle = info.color;
+    }
+    c.fill();
+
+    c.beginPath();
+    c.arc(-r * 0.3, -r * 0.32, r * 0.24, 0, Math.PI * 2);
+    c.fillStyle = 'rgba(255,255,255,0.32)';
+    c.fill();
+
+    c.lineWidth = Math.max(2, r * 0.08);
+    c.strokeStyle = '#231f20';
+    c.stroke();
+
+    if (customFaceImg) {
+      c.save();
+      c.beginPath();
+      c.arc(0, 0, r * 0.86, 0, Math.PI * 2);
+      c.clip();
+      c.drawImage(customFaceImg, -r * 0.86, -r * 0.86, r * 1.72, r * 1.72);
+      c.restore();
+    } else {
+      const eyeOffsetX = r * 0.32;
+      const eyeOffsetY = -r * 0.08;
+      const eyeR = Math.max(2.2, r * 0.12);
+
+      c.fillStyle = '#ffffff';
+      c.beginPath();
+      c.arc(-eyeOffsetX, eyeOffsetY, eyeR * 1.35, 0, Math.PI * 2);
+      c.arc(eyeOffsetX, eyeOffsetY, eyeR * 1.35, 0, Math.PI * 2);
+      c.fill();
+      c.lineWidth = 1.5;
+      c.strokeStyle = '#1e1b18';
+      c.stroke();
