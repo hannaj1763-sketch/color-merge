@@ -169,6 +169,7 @@
     width: 100%;
     height: 100%;
     display: block;
+    transform: translateZ(0);
   }
 
   .controls-bar {
@@ -242,7 +243,6 @@
     cursor: pointer;
   }
 
-  /* 색깔별 표정바꾸기 UI */
   .color-tabs {
     width: 100%;
     display: flex;
@@ -434,7 +434,7 @@
         <div style="font-size:12px; font-weight:800; color:#3c548a; margin-bottom:4px;">🖼 내 컬렉션 작품에서 골라 이 색깔에 넣기</div>
         <div class="col-strip" id="colStrip"></div>
       </div>
-      <p id="editingColorLabel" style="font-size:12px; font-weight:800; color:#b45309; text-align:center;">현재 선택: 🔴 빨강 예성이 그림 편집 중</p>
+      <p id="editingColorLabel" style="font-size:12px; font-weight:800; color:#b45309; text-align:center;">현재 선택: 빨강 예성이 그림 편집 중</p>
       <canvas id="faceCanvas" width="210" height="210"></canvas>
       <div class="tool-row">
         <button class="mini-btn active" data-size="4">가는펜</button>
@@ -601,12 +601,25 @@
   let gameOver = false;
   let shakeTime = 0;
 
-  // 색깔별 예성이 이미지 맵 { RED: Image, BLUE: Image, ... }
+  // 색깔별 예성이 썸네일 캔버스 캐시 { RED: HTMLCanvasElement(128x128), ... }
+  // 고해상도 원본을 매 프레임 리사이즈할 때 생기는 화면 번쩍거림을 원천 방지!
   const customFaces = {};
+  const thumbCache = new Map();
   let editingTypeId = 'RED';
-  let collectionUrls = [];
 
-  // gallery2026에서 전달받은 My Collection 이미지들을 색깔별로 자동 배정
+  function createLightweightThumb(sourceImg) {
+    const size = 128;
+    const off = document.createElement('canvas');
+    off.width = size;
+    off.height = size;
+    const octx = off.getContext('2d');
+    const minSide = Math.min(sourceImg.width, sourceImg.height);
+    const sx = (sourceImg.width - minSide) / 2;
+    const sy = (sourceImg.height - minSide) / 2;
+    octx.drawImage(sourceImg, sx, sy, minSide, minSide, 0, 0, size, size);
+    return off;
+  }
+
   function loadGalleryCollection() {
     try {
       const params = new URLSearchParams(window.location.search);
@@ -614,12 +627,22 @@
       if (!raw) return;
       const urls = JSON.parse(decodeURIComponent(raw));
       if (!Array.isArray(urls) || !urls.length) return;
-      collectionUrls = urls;
 
-      // 각 색깔(TYPE_LIST)마다 다른 예성이 작품을 순환 할당
-      TYPE_LIST.forEach((tInfo, idx) => {
-        const assignedUrl = urls[idx % urls.length];
-        assignUrlToType(tInfo.id, assignedUrl, true);
+      // 동시에 너무 많은 이미지를 한꺼번에 로드해 화면이 깜빡이지 않도록 순차적으로 가볍게 로드
+      urls.forEach((url, idx) => {
+        setTimeout(() => {
+          loadThumbFromUrl(url, (thumbCanvas) => {
+            TYPE_LIST.forEach((tInfo, tIdx) => {
+              if (tIdx % urls.length === idx) {
+                customFaces[tInfo.id] = thumbCanvas;
+                if (editingTypeId === tInfo.id) {
+                  drawImageToFaceCanvas(thumbCanvas);
+                }
+              }
+            });
+            updateHUD();
+          });
+        }, idx * 80);
       });
 
       const strip = document.getElementById('colStrip');
@@ -630,42 +653,46 @@
         const imgEl = document.createElement('img');
         imgEl.src = url;
         imgEl.className = 'col-thumb';
-        imgEl.crossOrigin = 'anonymous';
+        imgEl.loading = 'lazy';
         imgEl.onclick = () => {
           document.querySelectorAll('.col-thumb').forEach(t => t.classList.remove('picked'));
           imgEl.classList.add('picked');
-          assignUrlToType(editingTypeId, url, false);
+          loadThumbFromUrl(url, (thumbCanvas) => {
+            customFaces[editingTypeId] = thumbCanvas;
+            drawImageToFaceCanvas(thumbCanvas);
+            updateHUD();
+            setOctopusMsg(`${TYPES[editingTypeId].name} 예성이 그림이 바뀌었어요! 🎨`);
+          });
         };
         strip.appendChild(imgEl);
       });
 
-      setOctopusMsg(`색깔별로 예성이 그림 ${urls.length}점이 배정됐어요! 🎨`);
+      setOctopusMsg(`색깔별 예성이 그림과 표정이 합쳐졌어요! 😊🎨`);
     } catch (e) {}
   }
 
-  function assignUrlToType(typeId, url, silent = false) {
+  function loadThumbFromUrl(url, callback) {
+    if (thumbCache.has(url)) {
+      callback(thumbCache.get(url));
+      return;
+    }
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
-      customFaces[typeId] = img;
-      if (editingTypeId === typeId) {
-        drawImageToFaceCanvas(img);
-      }
-      updateHUD();
-      if (!silent) {
-        setOctopusMsg(`${TYPES[typeId].name} 예성이 그림이 바뀌었어요! 🎨`);
-      }
+      const thumb = createLightweightThumb(img);
+      thumbCache.set(url, thumb);
+      callback(thumb);
     };
     img.src = url;
   }
 
-  function drawImageToFaceCanvas(img) {
+  function drawImageToFaceCanvas(imgOrCanvas) {
     fCtx.clearRect(0, 0, 210, 210);
-    if (!img) return;
-    const minSide = Math.min(img.width, img.height);
-    const sx = (img.width - minSide) / 2;
-    const sy = (img.height - minSide) / 2;
-    fCtx.drawImage(img, sx, sy, minSide, minSide, 0, 0, 210, 210);
+    if (!imgOrCanvas) return;
+    const minSide = Math.min(imgOrCanvas.width, imgOrCanvas.height);
+    const sx = (imgOrCanvas.width - minSide) / 2;
+    const sy = (imgOrCanvas.height - minSide) / 2;
+    fCtx.drawImage(imgOrCanvas, sx, sy, minSide, minSide, 0, 0, 210, 210);
   }
 
   function resizeCanvas() {
@@ -690,7 +717,7 @@
     document.getElementById('gateText').textContent = `게이트 ${gateLevel} (${gateCount} / ${gateTarget})`;
 
     nextCtx.clearRect(0, 0, 44, 44);
-    drawYeseongCharacter(nextCtx, 22, 22, 17, TYPES[nextType], 0);
+    drawYeseongCharacter(nextCtx, 22, 22, 17, TYPES[nextType], 0, 'happy');
   }
 
   function addScore(basePts) {
@@ -730,17 +757,17 @@
     floatTexts.push({ x, y, text, color, life: 1.0 });
   }
 
-  // ===== 예성이 캐릭터 렌더링 (굵고 선명한 색깔 외곽 테두리) =====
-  function drawYeseongCharacter(c, x, y, r, info, wobble = 0) {
+  // ===== 예성이 캐릭터 렌더링 (굵은 색깔 외곽 + 예성이 그림 + 살아있는 표정) =====
+  function drawYeseongCharacter(c, x, y, r, info, wobble = 0, mood = 'happy') {
     c.save();
     c.translate(x, y);
     if (wobble) c.rotate(Math.sin(wobble) * 0.06);
 
-    // 1. 바깥쪽 짙은 테두리 + 굵은 색깔 외곽 링
     const outerStroke = Math.max(3.5, r * 0.14);
     const colorBand = Math.max(4.5, r * 0.20);
     const innerR = Math.max(6, r - colorBand);
 
+    // 1. 바깥쪽 굵은 색깔 원
     c.beginPath();
     c.arc(0, 0, r, 0, Math.PI * 2);
     if (info.color === 'rainbow') {
@@ -756,68 +783,117 @@
     }
     c.fill();
 
-    // 굵은 검은색 외곽선
+    // 굵은 검은 외곽선
     c.lineWidth = outerStroke;
     c.strokeStyle = '#1e1b18';
     c.stroke();
 
-    // 색깔 링 안쪽 경계선 (그림과 색깔 외곽을 또렷하게 분리)
-    const faceImg = customFaces[info.id];
-    if (faceImg) {
+    // 2. 안쪽 예성이 그림 (가벼운 128px 썸네일 캔버스 사용)
+    const faceThumb = customFaces[info.id];
+    const hasArt = !!faceThumb;
+    if (hasArt) {
       c.save();
       c.beginPath();
       c.arc(0, 0, innerR, 0, Math.PI * 2);
       c.fillStyle = '#ffffff';
       c.fill();
       c.clip();
-      c.drawImage(faceImg, -innerR, -innerR, innerR * 2, innerR * 2);
+      c.globalAlpha = 0.85; // 그림과 표정이 모두 잘 보이도록 은은하게 조화
+      c.drawImage(faceThumb, -innerR, -innerR, innerR * 2, innerR * 2);
       c.restore();
 
-      // 안쪽 경계 링 한 번 더 강조
       c.beginPath();
       c.arc(0, 0, innerR, 0, Math.PI * 2);
       c.lineWidth = Math.max(2, r * 0.07);
-      c.strokeStyle = 'rgba(30, 27, 24, 0.75)';
+      c.strokeStyle = 'rgba(30, 27, 24, 0.78)';
       c.stroke();
     } else {
-      // 기본 손그림 표정일 때
       c.beginPath();
       c.arc(-r * 0.3, -r * 0.32, r * 0.22, 0, Math.PI * 2);
       c.fillStyle = 'rgba(255,255,255,0.34)';
       c.fill();
+    }
 
-      const eyeOffsetX = r * 0.30;
-      const eyeOffsetY = -r * 0.08;
-      const eyeR = Math.max(2.2, r * 0.11);
+    // 3. 예성이 그림 위에도 살아있는 귀여운 표정 오버레이 (눈·볼터치·입)
+    c.save();
+    if (hasArt) c.globalAlpha = 0.88;
+    const eyeOffsetX = r * 0.27;
+    const eyeOffsetY = -r * 0.08;
+    const eyeR = Math.max(2.3, r * 0.115);
 
+    if (mood === 'joy') {
+      // 합체 직후 활짝 웃는 반달 눈 (^ ^)
+      c.lineWidth = Math.max(2.2, r * 0.075);
+      c.strokeStyle = '#1e1b18';
+      c.lineCap = 'round';
+      c.beginPath();
+      c.arc(-eyeOffsetX, eyeOffsetY + eyeR * 0.3, eyeR * 1.1, Math.PI * 1.15, Math.PI * 1.85);
+      c.stroke();
+      c.beginPath();
+      c.arc(eyeOffsetX, eyeOffsetY + eyeR * 0.3, eyeR * 1.1, Math.PI * 1.15, Math.PI * 1.85);
+      c.stroke();
+    } else {
+      // 또렷한 흰자 + 반짝이는 눈동자
       c.fillStyle = '#ffffff';
       c.beginPath();
-      c.arc(-eyeOffsetX, eyeOffsetY, eyeR * 1.35, 0, Math.PI * 2);
-      c.arc(eyeOffsetX, eyeOffsetY, eyeR * 1.35, 0, Math.PI * 2);
+      c.arc(-eyeOffsetX, eyeOffsetY, eyeR * 1.32, 0, Math.PI * 2);
+      c.arc(eyeOffsetX, eyeOffsetY, eyeR * 1.32, 0, Math.PI * 2);
       c.fill();
-      c.lineWidth = 1.6;
+      c.lineWidth = Math.max(1.6, r * 0.055);
       c.strokeStyle = '#1e1b18';
       c.stroke();
 
       c.fillStyle = '#1e1b18';
       c.beginPath();
-      c.arc(-eyeOffsetX + eyeR * 0.2, eyeOffsetY, eyeR * 0.75, 0, Math.PI * 2);
-      c.arc(eyeOffsetX - eyeR * 0.2, eyeOffsetY, eyeR * 0.75, 0, Math.PI * 2);
+      c.arc(-eyeOffsetX + eyeR * 0.15, eyeOffsetY, eyeR * 0.72, 0, Math.PI * 2);
+      c.arc(eyeOffsetX - eyeR * 0.15, eyeOffsetY, eyeR * 0.72, 0, Math.PI * 2);
       c.fill();
 
-      c.fillStyle = 'rgba(255, 182, 193, 0.7)';
+      // 눈망울 하이라이트 점
+      c.fillStyle = '#ffffff';
       c.beginPath();
-      c.ellipse(-r * 0.46, r * 0.16, r * 0.14, r * 0.085, 0, 0, Math.PI * 2);
-      c.ellipse(r * 0.46, r * 0.16, r * 0.14, r * 0.085, 0, 0, Math.PI * 2);
+      c.arc(-eyeOffsetX - eyeR * 0.12, eyeOffsetY - eyeR * 0.25, eyeR * 0.28, 0, Math.PI * 2);
+      c.arc(eyeOffsetX - eyeR * 0.42, eyeOffsetY - eyeR * 0.25, eyeR * 0.28, 0, Math.PI * 2);
       c.fill();
+    }
 
+    // 핑크 볼터치
+    c.fillStyle = 'rgba(255, 118, 148, 0.72)';
+    c.beginPath();
+    c.ellipse(-r * 0.43, r * 0.14, r * 0.13, r * 0.08, 0, 0, Math.PI * 2);
+    c.ellipse(r * 0.43, r * 0.14, r * 0.13, r * 0.08, 0, 0, Math.PI * 2);
+    c.fill();
+
+    // 표정별 입 모양
+    if (mood === 'surprised') {
+      // 떨어지는 중 동그란 입 (😮)
+      c.fillStyle = '#ff6b81';
+      c.strokeStyle = '#1e1b18';
+      c.lineWidth = Math.max(1.8, r * 0.06);
       c.beginPath();
-      c.arc(0, r * 0.12, r * 0.23, 0.15 * Math.PI, 0.85 * Math.PI);
+      c.arc(0, r * 0.18, r * 0.13, 0, Math.PI * 2);
+      c.fill();
+      c.stroke();
+    } else if (mood === 'joy') {
+      // 활짝 벌린 웃는 입 (😆)
+      c.fillStyle = '#ff6b81';
+      c.strokeStyle = '#1e1b18';
+      c.lineWidth = Math.max(1.8, r * 0.06);
+      c.beginPath();
+      c.arc(0, r * 0.10, r * 0.22, 0, Math.PI);
+      c.closePath();
+      c.fill();
+      c.stroke();
+    } else {
+      // 기본 귀여운 미소
+      c.beginPath();
+      c.arc(0, r * 0.11, r * 0.21, 0.15 * Math.PI, 0.85 * Math.PI);
       c.lineWidth = Math.max(2.2, r * 0.075);
       c.strokeStyle = '#1e1b18';
       c.lineCap = 'round';
       c.stroke();
     }
+    c.restore();
 
     // 색깔 외곽 상단 하이라이트 광택
     c.save();
@@ -877,7 +953,8 @@
       vy: 2.2,
       r: info.r,
       dangerTimer: 0,
-      wobble: Math.random() * 6
+      wobble: Math.random() * 6,
+      joyTimer: 0
     });
     playTone(320, 'sine', 0.1, 0.15);
     currentType = nextType;
@@ -988,6 +1065,7 @@
           if (d < 220) {
             b.vx += (dx / d) * 9;
             b.vy += (dy / d) * 9 - 4;
+            b.joyTimer = 45;
           }
         });
 
@@ -1014,6 +1092,7 @@
         b.x += b.vx / subSteps;
         b.y += b.vy / subSteps;
         b.wobble += 0.05 / subSteps;
+        if (b.joyTimer > 0) b.joyTimer -= 1 / subSteps;
 
         if (b.x - b.r < 0) { b.x = b.r; b.vx = Math.abs(b.vx) * 0.45; }
         if (b.x + b.r > W) { b.x = W - b.r; b.vx = -Math.abs(b.vx) * 0.45; }
@@ -1053,7 +1132,8 @@
                 vy: -2.0,
                 r: newInfo.r,
                 dangerTimer: 0,
-                wobble: 0
+                wobble: 0,
+                joyTimer: 40
               });
 
               spawnParticles(mx, my, newInfo.color, 16);
@@ -1126,7 +1206,7 @@
       ctx.stroke();
       ctx.restore();
 
-      drawYeseongCharacter(ctx, aimX, 34, curInfo.r, curInfo, 0);
+      drawYeseongCharacter(ctx, aimX, 34, curInfo.r, curInfo, 0, 'happy');
 
       balls.forEach(b => {
         if (getReactionResult(currentType, b.type)) {
@@ -1143,7 +1223,8 @@
     }
 
     balls.forEach(b => {
-      drawYeseongCharacter(ctx, b.x, b.y, b.r, TYPES[b.type], b.wobble);
+      const mood = b.joyTimer > 0 ? 'joy' : (b.vy > 3.2 ? 'surprised' : 'happy');
+      drawYeseongCharacter(ctx, b.x, b.y, b.r, TYPES[b.type], b.wobble, mood);
     });
 
     checkRainbowKingTrio();
@@ -1355,14 +1436,10 @@
   });
 
   document.getElementById('applyFaceBtn').addEventListener('click', () => {
-    const img = new Image();
-    img.onload = () => {
-      customFaces[editingTypeId] = img;
-      updateHUD();
-      faceModal.classList.remove('open');
-      setOctopusMsg(`${TYPES[editingTypeId].name} 예성이 표정 저장 완료! 😊`);
-    };
-    img.src = faceCanvas.toDataURL('image/png');
+    customFaces[editingTypeId] = createLightweightThumb(faceCanvas);
+    updateHUD();
+    faceModal.classList.remove('open');
+    setOctopusMsg(`${TYPES[editingTypeId].name} 예성이 표정 저장 완료! 😊`);
   });
 
   resizeCanvas();
