@@ -219,7 +219,7 @@
     border: 4px solid #3c548a;
     border-radius: 24px;
     width: 100%;
-    max-width: 390px;
+    max-width: 400px;
     max-height: 88vh;
     overflow-y: auto;
     padding: 18px;
@@ -242,6 +242,43 @@
     cursor: pointer;
   }
 
+  /* 색깔별 표정바꾸기 UI */
+  .color-tabs {
+    width: 100%;
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 4px 2px 8px;
+    margin-bottom: 6px;
+    border-bottom: 2px dashed #e2e8f0;
+  }
+  .color-tab {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 2.5px solid #cbd5e1;
+    background: #f8fafc;
+    font-size: 12px;
+    font-weight: 800;
+    color: #334155;
+    cursor: pointer;
+  }
+  .color-tab.active {
+    border-color: #1e293b;
+    background: #fef08a;
+    color: #1e293b;
+    box-shadow: 0 2px 0 #1e293b;
+  }
+  .color-tab .swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid #1e293b;
+  }
+
   .draw-area-wrap {
     display: flex;
     flex-direction: column;
@@ -250,10 +287,11 @@
   }
   canvas#faceCanvas {
     background: #fffdf5;
-    border: 4px solid #c27803;
+    border: 8px solid #ff4d4f;
     border-radius: 50%;
     cursor: crosshair;
     touch-action: none;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.12);
   }
   .tool-row {
     display: flex;
@@ -380,19 +418,23 @@
   </div>
 </div>
 
-<!-- 표정바꾸기 모달 -->
+<!-- 색깔별 표정바꾸기 모달 -->
 <div class="modal-backdrop" id="faceModal">
   <div class="modal-card">
     <div class="modal-header">
-      <div class="modal-title">😊 표정바꾸기 (예성이 얼굴)</div>
+      <div class="modal-title">😊 색깔별 표정바꾸기</div>
       <button class="close-btn" id="closeFaceBtn">닫기</button>
     </div>
+
+    <div style="font-size:11.5px; font-weight:800; color:#475569; margin-bottom:4px;">1. 바꿀 색깔 예성이를 선택하세요</div>
+    <div class="color-tabs" id="colorTabs"></div>
+
     <div class="draw-area-wrap">
       <div id="colSection" style="width:100%; display:none;">
-        <div style="font-size:12px; font-weight:800; color:#3c548a; margin-bottom:4px;">🖼 갤러리 내 컬렉션 작품에서 고르기</div>
+        <div style="font-size:12px; font-weight:800; color:#3c548a; margin-bottom:4px;">🖼 내 컬렉션 작품에서 골라 이 색깔에 넣기</div>
         <div class="col-strip" id="colStrip"></div>
       </div>
-      <p style="font-size:12px; color:#475569; text-align:center;">동그라미 안에 예성이의 눈·코·입을 직접 그리거나 사진을 올려보세요!</p>
+      <p id="editingColorLabel" style="font-size:12px; font-weight:800; color:#b45309; text-align:center;">현재 선택: 🔴 빨강 예성이 그림 편집 중</p>
       <canvas id="faceCanvas" width="210" height="210"></canvas>
       <div class="tool-row">
         <button class="mini-btn active" data-size="4">가는펜</button>
@@ -402,10 +444,10 @@
         <button class="mini-btn" id="clearFaceBtn">🧹 지우기</button>
       </div>
       <label class="mini-btn" style="background:#e0f2fe; border-color:#0284c7; color:#0369a1; width:100%; text-align:center;">
-        📷 휴대폰 사진첩에서 표정 넣기
+        📷 휴대폰 사진첩에서 이 색깔 그림 넣기
         <input type="file" id="uploadFaceInput" accept="image/*" style="display:none;" />
       </label>
-      <button class="save-face-btn" id="applyFaceBtn">✨ 모든 예성이에게 적용하기!</button>
+      <button class="save-face-btn" id="applyFaceBtn">✨ 이 색깔에 저장하고 닫기!</button>
     </div>
   </div>
 </div>
@@ -450,27 +492,29 @@
 <script>
 (() => {
   const TYPES = {
-    RED:       { id: 'RED',       tier: 1, name: '빨강',     color: '#ff4d4f', r: 22, score: 10 },
-    YELLOW:    { id: 'YELLOW',    tier: 1, name: '노랑',     color: '#facc15', r: 22, score: 10 },
-    BLUE:      { id: 'BLUE',      tier: 1, name: '파랑',     color: '#3b82f6', r: 22, score: 10 },
+    RED:       { id: 'RED',       tier: 1, name: '빨강',     color: '#ff4d4f', r: 23, score: 10 },
+    YELLOW:    { id: 'YELLOW',    tier: 1, name: '노랑',     color: '#facc15', r: 23, score: 10 },
+    BLUE:      { id: 'BLUE',      tier: 1, name: '파랑',     color: '#3b82f6', r: 23, score: 10 },
 
-    PURPLE:    { id: 'PURPLE',    tier: 2, name: '보라',     color: '#9333ea', r: 28, score: 30 },
-    ORANGE:    { id: 'ORANGE',    tier: 2, name: '주황',     color: '#f97316', r: 28, score: 30 },
-    GREEN:     { id: 'GREEN',     tier: 2, name: '초록',     color: '#22c55e', r: 28, score: 30 },
+    PURPLE:    { id: 'PURPLE',    tier: 2, name: '보라',     color: '#9333ea', r: 29, score: 30 },
+    ORANGE:    { id: 'ORANGE',    tier: 2, name: '주황',     color: '#f97316', r: 29, score: 30 },
+    GREEN:     { id: 'GREEN',     tier: 2, name: '초록',     color: '#22c55e', r: 29, score: 30 },
 
-    MAGENTA:   { id: 'MAGENTA',   tier: 3, name: '자주',     color: '#db2777', r: 34, score: 70 },
-    INDIGO:    { id: 'INDIGO',    tier: 3, name: '남보라',   color: '#4f46e5', r: 34, score: 70 },
-    VERMILION: { id: 'VERMILION', tier: 3, name: '다홍',     color: '#ea580c', r: 34, score: 70 },
-    TANGERINE: { id: 'TANGERINE', tier: 3, name: '귤색',     color: '#eab308', r: 34, score: 70 },
-    LIME:      { id: 'LIME',      tier: 3, name: '연두',     color: '#84cc16', r: 34, score: 70 },
-    TEAL:      { id: 'TEAL',      tier: 3, name: '청록',     color: '#0d9488', r: 34, score: 70 },
+    MAGENTA:   { id: 'MAGENTA',   tier: 3, name: '자주',     color: '#db2777', r: 35, score: 70 },
+    INDIGO:    { id: 'INDIGO',    tier: 3, name: '남보라',   color: '#4f46e5', r: 35, score: 70 },
+    VERMILION: { id: 'VERMILION', tier: 3, name: '다홍',     color: '#ea580c', r: 35, score: 70 },
+    TANGERINE: { id: 'TANGERINE', tier: 3, name: '귤색',     color: '#eab308', r: 35, score: 70 },
+    LIME:      { id: 'LIME',      tier: 3, name: '연두',     color: '#84cc16', r: 35, score: 70 },
+    TEAL:      { id: 'TEAL',      tier: 3, name: '청록',     color: '#0d9488', r: 35, score: 70 },
 
-    BROWN:     { id: 'BROWN',     tier: 4, name: '고동',     color: '#78350f', r: 40, score: 150 },
-    CHESTNUT:  { id: 'CHESTNUT',  tier: 5, name: '적갈색',   color: '#9a3412', r: 46, score: 320 },
-    GOLDSTAR:  { id: 'GOLDSTAR',  tier: 6, name: '황금별',   color: '#f59e0b', r: 52, score: 650, star: true },
-    CROWN:     { id: 'CROWN',     tier: 7, name: '왕관대장', color: '#ec4899', r: 58, score: 1300, crown: true },
-    RAINBOW:   { id: 'RAINBOW',   tier: 8, name: '무지개대왕', color: 'rainbow', r: 64, score: 3000, crown: true }
+    BROWN:     { id: 'BROWN',     tier: 4, name: '고동',     color: '#78350f', r: 41, score: 150 },
+    CHESTNUT:  { id: 'CHESTNUT',  tier: 5, name: '적갈색',   color: '#9a3412', r: 47, score: 320 },
+    GOLDSTAR:  { id: 'GOLDSTAR',  tier: 6, name: '황금별',   color: '#f59e0b', r: 53, score: 650, star: true },
+    CROWN:     { id: 'CROWN',     tier: 7, name: '왕관대장', color: '#ec4899', r: 59, score: 1300, crown: true },
+    RAINBOW:   { id: 'RAINBOW',   tier: 8, name: '무지개대왕', color: 'rainbow', r: 65, score: 3000, crown: true }
   };
+
+  const TYPE_LIST = Object.values(TYPES);
 
   const MIX_TABLE = {
     'RED+BLUE': 'PURPLE', 'BLUE+RED': 'PURPLE',
@@ -556,9 +600,13 @@
   let canDrop = true;
   let gameOver = false;
   let shakeTime = 0;
-  let customFaceImg = null;
+
+  // 색깔별 예성이 이미지 맵 { RED: Image, BLUE: Image, ... }
+  const customFaces = {};
+  let editingTypeId = 'RED';
   let collectionUrls = [];
 
+  // gallery2026에서 전달받은 My Collection 이미지들을 색깔별로 자동 배정
   function loadGalleryCollection() {
     try {
       const params = new URLSearchParams(window.location.search);
@@ -568,47 +616,56 @@
       if (!Array.isArray(urls) || !urls.length) return;
       collectionUrls = urls;
 
+      // 각 색깔(TYPE_LIST)마다 다른 예성이 작품을 순환 할당
+      TYPE_LIST.forEach((tInfo, idx) => {
+        const assignedUrl = urls[idx % urls.length];
+        assignUrlToType(tInfo.id, assignedUrl, true);
+      });
+
       const strip = document.getElementById('colStrip');
       const sec = document.getElementById('colSection');
       sec.style.display = 'block';
 
-      urls.forEach((url, idx) => {
+      urls.forEach((url) => {
         const imgEl = document.createElement('img');
         imgEl.src = url;
-        imgEl.className = 'col-thumb' + (idx === 0 ? ' picked' : '');
+        imgEl.className = 'col-thumb';
         imgEl.crossOrigin = 'anonymous';
         imgEl.onclick = () => {
           document.querySelectorAll('.col-thumb').forEach(t => t.classList.remove('picked'));
           imgEl.classList.add('picked');
-          applyImageUrlToFace(url, false);
+          assignUrlToType(editingTypeId, url, false);
         };
         strip.appendChild(imgEl);
       });
 
-      applyImageUrlToFace(urls[0], true);
+      setOctopusMsg(`색깔별로 예성이 그림 ${urls.length}점이 배정됐어요! 🎨`);
     } catch (e) {}
   }
 
-  function applyImageUrlToFace(url, silent = false) {
+  function assignUrlToType(typeId, url, silent = false) {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
-      customFaceImg = img;
-      fCtx.clearRect(0, 0, 210, 210);
-      const minSide = Math.min(img.width, img.height);
-      const sx = (img.width - minSide) / 2;
-      const sy = (img.height - minSide) / 2;
-      fCtx.drawImage(img, sx, sy, minSide, minSide, 0, 0, 210, 210);
-      saveFaceHistory();
+      customFaces[typeId] = img;
+      if (editingTypeId === typeId) {
+        drawImageToFaceCanvas(img);
+      }
       updateHUD();
       if (!silent) {
-        faceModal.classList.remove('open');
-        setOctopusMsg('내 컬렉션 작품으로 표정 적용 완료! 🎨');
-      } else {
-        setOctopusMsg('내 컬렉션 예성이 그림이 도착했어요! 🎨');
+        setOctopusMsg(`${TYPES[typeId].name} 예성이 그림이 바뀌었어요! 🎨`);
       }
     };
     img.src = url;
+  }
+
+  function drawImageToFaceCanvas(img) {
+    fCtx.clearRect(0, 0, 210, 210);
+    if (!img) return;
+    const minSide = Math.min(img.width, img.height);
+    const sx = (img.width - minSide) / 2;
+    const sy = (img.height - minSide) / 2;
+    fCtx.drawImage(img, sx, sy, minSide, minSide, 0, 0, 210, 210);
   }
 
   function resizeCanvas() {
@@ -673,10 +730,16 @@
     floatTexts.push({ x, y, text, color, life: 1.0 });
   }
 
+  // ===== 예성이 캐릭터 렌더링 (굵고 선명한 색깔 외곽 테두리) =====
   function drawYeseongCharacter(c, x, y, r, info, wobble = 0) {
     c.save();
     c.translate(x, y);
     if (wobble) c.rotate(Math.sin(wobble) * 0.06);
+
+    // 1. 바깥쪽 짙은 테두리 + 굵은 색깔 외곽 링
+    const outerStroke = Math.max(3.5, r * 0.14);
+    const colorBand = Math.max(4.5, r * 0.20);
+    const innerR = Math.max(6, r - colorBand);
 
     c.beginPath();
     c.arc(0, 0, r, 0, Math.PI * 2);
@@ -693,34 +756,46 @@
     }
     c.fill();
 
-    c.beginPath();
-    c.arc(-r * 0.3, -r * 0.32, r * 0.24, 0, Math.PI * 2);
-    c.fillStyle = 'rgba(255,255,255,0.32)';
-    c.fill();
-
-    c.lineWidth = Math.max(2, r * 0.08);
-    c.strokeStyle = '#231f20';
+    // 굵은 검은색 외곽선
+    c.lineWidth = outerStroke;
+    c.strokeStyle = '#1e1b18';
     c.stroke();
 
-    if (customFaceImg) {
+    // 색깔 링 안쪽 경계선 (그림과 색깔 외곽을 또렷하게 분리)
+    const faceImg = customFaces[info.id];
+    if (faceImg) {
       c.save();
       c.beginPath();
-      c.arc(0, 0, r * 0.84, 0, Math.PI * 2);
+      c.arc(0, 0, innerR, 0, Math.PI * 2);
+      c.fillStyle = '#ffffff';
+      c.fill();
       c.clip();
-      c.globalAlpha = 0.92;
-      c.drawImage(customFaceImg, -r * 0.84, -r * 0.84, r * 1.68, r * 1.68);
+      c.drawImage(faceImg, -innerR, -innerR, innerR * 2, innerR * 2);
       c.restore();
+
+      // 안쪽 경계 링 한 번 더 강조
+      c.beginPath();
+      c.arc(0, 0, innerR, 0, Math.PI * 2);
+      c.lineWidth = Math.max(2, r * 0.07);
+      c.strokeStyle = 'rgba(30, 27, 24, 0.75)';
+      c.stroke();
     } else {
-      const eyeOffsetX = r * 0.32;
+      // 기본 손그림 표정일 때
+      c.beginPath();
+      c.arc(-r * 0.3, -r * 0.32, r * 0.22, 0, Math.PI * 2);
+      c.fillStyle = 'rgba(255,255,255,0.34)';
+      c.fill();
+
+      const eyeOffsetX = r * 0.30;
       const eyeOffsetY = -r * 0.08;
-      const eyeR = Math.max(2.2, r * 0.12);
+      const eyeR = Math.max(2.2, r * 0.11);
 
       c.fillStyle = '#ffffff';
       c.beginPath();
       c.arc(-eyeOffsetX, eyeOffsetY, eyeR * 1.35, 0, Math.PI * 2);
       c.arc(eyeOffsetX, eyeOffsetY, eyeR * 1.35, 0, Math.PI * 2);
       c.fill();
-      c.lineWidth = 1.5;
+      c.lineWidth = 1.6;
       c.strokeStyle = '#1e1b18';
       c.stroke();
 
@@ -730,24 +805,35 @@
       c.arc(eyeOffsetX - eyeR * 0.2, eyeOffsetY, eyeR * 0.75, 0, Math.PI * 2);
       c.fill();
 
-      c.fillStyle = 'rgba(255, 182, 193, 0.65)';
+      c.fillStyle = 'rgba(255, 182, 193, 0.7)';
       c.beginPath();
-      c.ellipse(-r * 0.48, r * 0.16, r * 0.15, r * 0.09, 0, 0, Math.PI * 2);
-      c.ellipse(r * 0.48, r * 0.16, r * 0.15, r * 0.09, 0, 0, Math.PI * 2);
+      c.ellipse(-r * 0.46, r * 0.16, r * 0.14, r * 0.085, 0, 0, Math.PI * 2);
+      c.ellipse(r * 0.46, r * 0.16, r * 0.14, r * 0.085, 0, 0, Math.PI * 2);
       c.fill();
 
       c.beginPath();
-      c.arc(0, r * 0.12, r * 0.24, 0.15 * Math.PI, 0.85 * Math.PI);
-      c.lineWidth = Math.max(2, r * 0.07);
+      c.arc(0, r * 0.12, r * 0.23, 0.15 * Math.PI, 0.85 * Math.PI);
+      c.lineWidth = Math.max(2.2, r * 0.075);
       c.strokeStyle = '#1e1b18';
       c.lineCap = 'round';
       c.stroke();
     }
 
+    // 색깔 외곽 상단 하이라이트 광택
+    c.save();
+    c.beginPath();
+    c.arc(0, 0, r - outerStroke * 0.6, -Math.PI * 0.75, -Math.PI * 0.25);
+    c.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+    c.lineWidth = Math.max(2, r * 0.06);
+    c.lineCap = 'round';
+    c.stroke();
+    c.restore();
+
+    // 왕관 또는 별 장식 (6~8단계)
     if (info.crown) {
       c.fillStyle = '#fde047';
-      c.strokeStyle = '#854d0e';
-      c.lineWidth = 2;
+      c.strokeStyle = '#713f12';
+      c.lineWidth = 2.5;
       c.beginPath();
       c.moveTo(-r * 0.36, -r * 0.82);
       c.lineTo(-r * 0.22, -r * 1.15);
@@ -763,14 +849,15 @@
       c.fillText('⭐', 0, -r * 0.78);
     }
 
+    // 단계 이름 뱃지 (반지름 28 이상)
     if (r >= 28) {
-      c.font = `900 ${Math.max(9, Math.round(r * 0.25))}px sans-serif`;
+      c.font = `900 ${Math.max(9.5, Math.round(r * 0.24))}px sans-serif`;
       c.textAlign = 'center';
       c.fillStyle = '#ffffff';
-      c.strokeStyle = 'rgba(0,0,0,0.75)';
-      c.lineWidth = 3;
-      c.strokeText(info.name, 0, r * 0.75);
-      c.fillText(info.name, 0, r * 0.75);
+      c.strokeStyle = '#1e1b18';
+      c.lineWidth = 3.5;
+      c.strokeText(info.name, 0, r * 0.82);
+      c.fillText(info.name, 0, r * 0.82);
     }
 
     c.restore();
@@ -1134,6 +1221,7 @@
 
   document.getElementById('resetBtn').addEventListener('click', resetGame);
 
+  // ===== 색깔별 표정바꾸기 그림판 & 모달 제어 =====
   const faceModal = document.getElementById('faceModal');
   const bookModal = document.getElementById('bookModal');
   const faceCanvas = document.getElementById('faceCanvas');
@@ -1157,7 +1245,41 @@
   }
   initFacePad();
 
-  document.getElementById('openFaceBtn').addEventListener('click', () => faceModal.classList.add('open'));
+  function renderColorTabs() {
+    const tabsEl = document.getElementById('colorTabs');
+    tabsEl.innerHTML = '';
+    TYPE_LIST.forEach(info => {
+      const btn = document.createElement('button');
+      btn.className = 'color-tab' + (info.id === editingTypeId ? ' active' : '');
+      const bgStyle = info.color === 'rainbow'
+        ? 'background: linear-gradient(135deg, #ff4d4f, #facc15, #22c55e, #3b82f6, #a855f7);'
+        : `background: ${info.color};`;
+      btn.innerHTML = `<span class="swatch" style="${bgStyle}"></span><span>${info.name}</span>`;
+      btn.onclick = () => {
+        selectEditingColor(info.id);
+      };
+      tabsEl.appendChild(btn);
+    });
+  }
+
+  function selectEditingColor(typeId) {
+    editingTypeId = typeId;
+    const info = TYPES[typeId];
+    renderColorTabs();
+    document.getElementById('editingColorLabel').textContent = `현재 선택: ${info.name} 예성이 그림 편집 중`;
+    faceCanvas.style.borderColor = info.color === 'rainbow' ? '#9333ea' : info.color;
+
+    initFacePad();
+    if (customFaces[typeId]) {
+      drawImageToFaceCanvas(customFaces[typeId]);
+      saveFaceHistory();
+    }
+  }
+
+  document.getElementById('openFaceBtn').addEventListener('click', () => {
+    selectEditingColor(currentType || 'RED');
+    faceModal.classList.add('open');
+  });
   document.getElementById('closeFaceBtn').addEventListener('click', () => faceModal.classList.remove('open'));
   document.getElementById('openBookBtn').addEventListener('click', () => bookModal.classList.add('open'));
   document.getElementById('closeBookBtn').addEventListener('click', () => bookModal.classList.remove('open'));
@@ -1207,7 +1329,11 @@
     }
   });
 
-  document.getElementById('clearFaceBtn').addEventListener('click', initFacePad);
+  document.getElementById('clearFaceBtn').addEventListener('click', () => {
+    initFacePad();
+    delete customFaces[editingTypeId];
+    updateHUD();
+  });
 
   document.getElementById('uploadFaceInput').addEventListener('change', (e) => {
     const file = e.target.files[0];
@@ -1231,10 +1357,10 @@
   document.getElementById('applyFaceBtn').addEventListener('click', () => {
     const img = new Image();
     img.onload = () => {
-      customFaceImg = img;
+      customFaces[editingTypeId] = img;
       updateHUD();
       faceModal.classList.remove('open');
-      setOctopusMsg('새 예성이 표정 적용 완료! 너무 귀여워요! 😊');
+      setOctopusMsg(`${TYPES[editingTypeId].name} 예성이 표정 저장 완료! 😊`);
     };
     img.src = faceCanvas.toDataURL('image/png');
   });
