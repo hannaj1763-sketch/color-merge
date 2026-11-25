@@ -439,11 +439,11 @@
     <div class="color-tabs" id="colorTabs"></div>
 
     <div class="draw-area-wrap">
-      <div id="colSection" style="width:100%; display:none;">
+      <div id="colSection" style="width:100%; display:none !important;">
         <div style="font-size:12px; font-weight:800; color:#3c548a; margin-bottom:4px;">🖼 내 컬렉션 작품에서 골라 이 색깔에 넣기</div>
         <div class="col-strip" id="colStrip"></div>
       </div>
-      <p id="editingColorLabel" style="font-size:12px; font-weight:800; color:#b45309; text-align:center;">현재 선택: 빨강 JJ 그림 편집 중</p>
+      <p id="editingColorLabel" style="font-size:12px; font-weight:800; color:#b45309; text-align:center;">현재 선택: 빨강 얼굴 꾸미기</p>
       <canvas id="faceCanvas" width="210" height="210"></canvas>
       <div class="tool-row">
         <button class="mini-btn active" data-size="4">가는펜</button>
@@ -1356,7 +1356,7 @@
     editingTypeId = typeId;
     const info = TYPES[typeId];
     renderColorTabs();
-    document.getElementById('editingColorLabel').textContent = `현재 선택: ${info.name} JJ 그림 편집 중`;
+    document.getElementById('editingColorLabel').textContent = `현재 선택: ${info.name} 얼굴 꾸미기`;
     faceCanvas.style.borderColor = info.color === 'rainbow' ? '#9333ea' : info.color;
 
     initFacePad();
@@ -1453,7 +1453,7 @@
 
   resizeCanvas();
   resetGame();
-  loadGalleryCollection();
+  // JJ 그림은 넣지 않아요: 각 방울은 본연의 색깔로 얼굴을 가득 채워요
   loop();
 })();
 </script>
